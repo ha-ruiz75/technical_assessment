@@ -1,0 +1,63 @@
+#!/usr/bin/env python3
+
+#INPUT:
+	#[1] -> ariba summary file (CSV)
+	#[2] -> ncbi acquired genes metadata (CSV)
+#OUTPUT:
+	#resistant_samples.csv -> the sample identifiers for which resistance was found
+	#criteria_samples.csv -> values of 1 indicate all three criteria for resistance were found for a given ARIBA output cluster
+
+#import packages
+import pandas as pd
+import re, sys
+import numpy as np
+
+#create dataframes
+  #ariba = pd.read_csv('ariba_amr_output.csv', index_col=0)
+  #ncbi = pd.read_csv('ncbi_acquired_genes_metadata.csv', index_col=2)
+
+try:
+	ariba = pd.read_csv(sys.argv[1], index_col=0)
+	ncbi = pd.read_csv(sys.argv[2], index_col=2)
+except:
+	print('One or more arguments missing:','\n', '[1] -> ariba summary file (CSV)','\n', '[2] -> ncbi acquired genes metadata (CSV)')
+	sys.exit(2)
+
+#setup dataframes
+is_suf_assembled = ariba.filter(regex='.assembled$', axis=1)
+is_suf_ctg = ariba.filter(regex='.ctg_cov$', axis=1)
+is_suf_refseq = ariba.filter(regex='.ref_seq', axis=1)
+
+#create binary df for processing
+bin_df = pd.DataFrame(1, index=is_suf_assembled.index, columns=is_suf_assembled.columns)
+bin_df.columns = bin_df.columns.str.replace(".assembled", "")
+sumZero=bin_df.to_numpy().sum()
+
+#for each criteria change value to 0 if criteria is not met
+for i in range(len(is_suf_assembled)) :
+
+	for j in range(len(is_suf_assembled.columns)):
+
+		if is_suf_assembled.iloc[i,j] != 'yes' and is_suf_assembled.iloc[i,j] != 'yes_nonunique':
+			bin_df.iloc[i,j]=0
+		if is_suf_ctg.iloc[i,j] <10:
+			bin_df.iloc[i,j]=0
+		val = is_suf_refseq.iloc[i,j]
+		if isinstance(val, str)==False:
+			bin_df.iloc[i,j]=0;
+		else:
+			accesion = val[-11:]
+			try:
+				resistance = ncbi.loc[accesion,'subclass']
+				if ncbi.loc[accesion,'subclass'] != 'CEPHALOSPORIN' and ncbi.loc[accesion,'subclass'] != 'CARBAPENEM':
+					bin_df.iloc[i,j]=0
+			except:
+				bin_df.iloc[i,j]=0
+
+#find and save samples with resistance
+bin_df['RESISTANT'] = bin_df.sum(axis=1)
+bin_df.to_csv('./criteria_samples.csv')
+resistant_df = bin_df['RESISTANT'] >=1
+report_df = resistant_df[resistant_df]
+report_df.to_csv('./resistant_samples.csv')
+print('Done -> Total resistant samples: ', len(report_df))

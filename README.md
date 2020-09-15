@@ -1,5 +1,5 @@
 # technical_assessment
-Excercise 2 -> script findResistant
+Exercise 2 -> script findResistant
 
   to run in command line
   
@@ -19,5 +19,5 @@ Excercise 2 -> script findResistant
 
 -------------------------
 
-Excercise 3 -> Nextflow 
+Exercise 3 -> Nextflow 
   main.nf
